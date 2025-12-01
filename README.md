@@ -1,4 +1,4 @@
-# GitHub Enterprise Repository Risk Assessment Tool
+# GitHub Enterprise Repository Best Practices Assessment Tool
 
 A comprehensive tool for evaluating GitHub repositories against security best practices, compliance frameworks, and GitHub Copilot integration standards.
 
