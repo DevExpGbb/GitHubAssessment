@@ -1,4 +1,4 @@
-#!/usr/bin/env python3 >>> DRAFT first view in the script <<<
+#!/usr/bin/env python3 >>>DRAFT first version in the script <<<
 """
 GitHub Security Assessment Tool
 Checks repositories for security controls and compliance.

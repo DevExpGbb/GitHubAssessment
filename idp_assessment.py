@@ -1,4 +1,4 @@
-#!/usr/bin/env python3 -->>> DRAFT first view in the script <<<
+#!/usr/bin/env python3 -->>> DRAFT first version in the script <<<
 """
 GitHub Identity and Access Management Assessment Tool
 Validates SSO, MFA, permissions, and token security configurations.
@@ -392,16 +392,15 @@ def export_to_csv(results):
             # Token & Secret Security
             'Advanced Security Enabled': 'Yes' if tokens.get('advanced_security_for_new_repos', False) else 'No',
             'Secret Scanning for New Repos': 'Yes' if tokens.get('secret_scanning_for_new_repos', False) else 'No',
-            'Secret Scanning Push Protection': 'Yes' if tokens.get('secret_scanning_push_protection', False) else 'No',
             'Dependabot Alerts Enabled': 'Yes' if tokens.get('dependabot_alerts_for_new_repos', False) else 'No',
-            'Token Security Status': '✅ Pass' if tokens.get('secret_scanning_push_protection', False) else '⚠️ Review',
+            'Token Security Status': '✅ Pass' if tokens.get('secret_scanning_for_new_repos', False) else '⚠️ Review',
             
             # Overall Compliance
             'Overall IAM Status': '✅ Compliant' if all([
                 # Enterprise orgs use IdP for auth, so don't require org-level 2FA setting
                 (sso.get('two_factor_required', False) or sso.get('has_enterprise', False)),
                 privs.get('default_repository_permission') in ['read', 'none'],
-                tokens.get('secret_scanning_push_protection', False)
+                tokens.get('secret_scanning_for_new_repos', False)
             ]) else '⚠️ Review Required',
             
             # Errors
@@ -453,7 +452,7 @@ def print_summary(results, fetch_time, assess_time, total_time):
     
     secure_permissions = sum(1 for r in results if r['member_privileges'].get('default_repository_permission') in ['read', 'none'])
     
-    with_secret_scanning = sum(1 for r in results if r['token_security'].get('secret_scanning_push_protection', False))
+    with_secret_scanning = sum(1 for r in results if r['token_security'].get('secret_scanning_for_new_repos', False))
     
     # Check for enterprise organizations
     with_enterprise = sum(1 for r in results if r['sso_config'].get('has_enterprise', False))
@@ -463,7 +462,7 @@ def print_summary(results, fetch_time, assess_time, total_time):
         # Either 2FA enabled OR has enterprise (SSO likely at enterprise level)
         (r['sso_config'].get('two_factor_required', False) or r['sso_config'].get('has_enterprise', False)),
         r['member_privileges'].get('default_repository_permission') in ['read', 'none'],
-        r['token_security'].get('secret_scanning_push_protection', False)
+        r['token_security'].get('secret_scanning_for_new_repos', False)
     ]))
     
     log("\n" + "=" * 80)
@@ -485,7 +484,7 @@ def print_summary(results, fetch_time, assess_time, total_time):
     log(f"   Secure Default Permissions (read/none): {secure_permissions}/{total_orgs} ({(secure_permissions/total_orgs*100):.1f}%)")
     
     log(f"\n🔑 TOKEN & SECRET SECURITY:")
-    log(f"   Secret Scanning Push Protection: {with_secret_scanning}/{total_orgs} ({(with_secret_scanning/total_orgs*100):.1f}%)")
+    log(f"   Secret Scanning for New Repos: {with_secret_scanning}/{total_orgs} ({(with_secret_scanning/total_orgs*100):.1f}%)")
     
     log(f"\n✅ FULLY COMPLIANT ORGANIZATIONS: {fully_compliant}/{total_orgs} ({(fully_compliant/total_orgs*100):.1f}%)")
     
@@ -538,8 +537,8 @@ def print_summary(results, fetch_time, assess_time, total_time):
         log(f"      • Set to 'read' or 'none' for better security")
     
     if with_secret_scanning < total_orgs:
-        log(f"   ⚠️  Enable Secret Scanning Push Protection for {total_orgs - with_secret_scanning} organizations")
-        log(f"      • Prevents commits with exposed secrets")
+        log(f"   ⚠️  Enable Secret Scanning for new repos for {total_orgs - with_secret_scanning} organizations")
+        log(f"      • See security assessment for push protection details")
     
     log(f"\n📚 ADDITIONAL RESOURCES:")
     log(f"   • SAML SSO Setup: https://docs.github.com/enterprise-cloud@latest/organizations/managing-saml-single-sign-on-for-your-organization")
