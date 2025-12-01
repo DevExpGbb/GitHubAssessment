@@ -52,7 +52,8 @@ CONFIG = {
     'include_timestamp': True,
     
     # Personal account identifier (used to detect personal vs org repos)
-    'personal_account': 'admin_tcardoso',
+    # Leave empty to auto-detect from GitHub CLI authenticated user
+    'personal_account': '',
     
     # Verbose output
     'verbose': True,
@@ -153,6 +154,13 @@ def run_gh_command(command):
 def fetch_repositories():
     """Fetch all accessible repositories in parallel"""
     log("Fetching repositories in parallel...")
+    
+    # Auto-detect personal account if not set
+    if not CONFIG['personal_account']:
+        user_info = run_gh_command(f"{CONFIG['gh_command']} api user --jq '.login'")
+        if user_info:
+            CONFIG['personal_account'] = user_info.strip('"')
+            log(f"Detected personal account: {CONFIG['personal_account']}", verbose_only=True)
     
     # Check initial rate limit
     if CONFIG['enable_rate_limit_check']:
