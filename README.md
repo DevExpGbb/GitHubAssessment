@@ -66,7 +66,7 @@ Validates proper structure under `.github/` directory:
 
 ### Prerequisites
 
-- Python 3.7+
+- Python 3.8+
 - **GitHub CLI (gh)** installed and authenticated
 - Virtual environment (recommended)
 
@@ -74,7 +74,7 @@ Validates proper structure under `.github/` directory:
 
 1. Clone the repository:
 ```bash
-git clone <repository-url>
+git clone https://github.com/DevExpGbb/GitHubAssessment.git
 cd GitHubAssessment
 ```
 

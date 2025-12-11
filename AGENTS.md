@@ -5,7 +5,7 @@
 This is a **GitHub Enterprise Repository Best Practices Assessment Tool** written in Python. It provides automated assessment of GitHub repositories to ensure they meet enterprise security requirements, compliance standards, and follow best practices for AI-assisted development with GitHub Copilot.
 
 **Repository**: DevExpGbb/GitHubAssessment  
-**Language**: Python 3.7+  
+**Language**: Python 3.8+ (Python 3.7 reached EOL in June 2023)  
 **Dependencies**: GitHub CLI (gh), subprocess, json, csv, concurrent.futures  
 **License**: [Not specified]
 
@@ -185,7 +185,7 @@ Collections Count, Scripts Dir, Scripts Count, Overall Copilot Status, Recommend
 ## Development Guidelines
 
 ### Prerequisites
-- Python 3.7 or higher
+- Python 3.8 or higher (Python 3.7 reached EOL in June 2023)
 - GitHub CLI (gh) installed and authenticated
 - Appropriate GitHub permissions:
   - Repository read access for security/Copilot assessments
@@ -195,7 +195,7 @@ Collections Count, Scripts Dir, Scripts Count, Overall Copilot Status, Recommend
 
 ```bash
 # Clone repository
-git clone <repository-url>
+git clone https://github.com/DevExpGbb/GitHubAssessment.git
 cd GitHubAssessment
 
 # Create virtual environment
