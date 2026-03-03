@@ -101,6 +101,7 @@ def list_repos_gh():
             print(f"   agents: No")
             print(f"   collections: No")
             print(f"   scripts: No")
+            print(f"   skills: No")
             repos_checked += 1
         elif isinstance(github_contents, dict) and 'message' in github_contents:
             print(f"   ❌ Error: {github_contents.get('message', 'Unknown error')}")
@@ -115,7 +116,8 @@ def list_repos_gh():
                 'instructions': 'instructions' in folder_names,
                 'agents': 'agents' in folder_names,
                 'collections': 'collections' in folder_names,
-                'scripts': 'scripts' in folder_names
+                'scripts': 'scripts' in folder_names,
+                'skills': 'skills' in folder_names
             }
             
             for folder, exists in folders.items():

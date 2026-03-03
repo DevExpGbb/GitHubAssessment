@@ -34,7 +34,7 @@ CONFIG = {
     'gh_command': 'gh',
     
     # Directories to check in .github folder
-    'copilot_dirs': ['prompts', 'instructions', 'agents', 'collections', 'scripts'],
+    'copilot_dirs': ['prompts', 'instructions', 'agents', 'collections', 'scripts', 'skills'],
     
     # Performance settings
     'max_workers_fetch': 10,     # Parallel workers for fetching repos
