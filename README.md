@@ -23,7 +23,7 @@ Validates proper structure under `.github/` directory:
 ├── agents/            # AI personas and specialized modes (.agent.md)
 ├── collections/       # Curated collections of related items (.collection.yml)
 ├── scripts/           # Utility scripts for maintenance
-└── skills/            # Agent skills for Copilot (.skill.yml)
+└── skills/            # Agent skills for Copilot (.skill.md)
 ```
 
 - **Task-Specific Prompts**: Include prompts organized by task in `.github/prompts/`
@@ -140,7 +140,7 @@ python assess_copilot_repos.py
 - `.github/instructions/` with coding standards (`.instructions.md` files)
 - `.github/agents/` with AI personas (`.agent.md` files)
 - `.github/collections/` with curated collections (`.collection.yml` files)
-- `.github/skills/` with agent skills (`.skill.yml` files)
+- `.github/skills/` with agent skills (`.skill.md` files)
 - Proper file extensions and structure
 - Repository metadata and accessibility
 
