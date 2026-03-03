@@ -6,6 +6,11 @@ A comprehensive tool for evaluating GitHub repositories against security best pr
 
 This tool provides automated assessment of GitHub repositories to ensure they meet enterprise security requirements, compliance standards, and follow best practices for AI-assisted development with GitHub Copilot.
 
+### Quick Links
+- **For Developers**: See usage instructions below
+- **For AI/LLM Agents**: See [AGENTS.md](AGENTS.md) for detailed technical documentation
+- **Issue Tracker**: [GitHub Issues](https://github.com/DevExpGbb/GitHubAssessment/issues)
+
 ## Features
 
 ### 🤖 GitHub Copilot Best Practices Validation
@@ -62,7 +67,7 @@ Validates proper structure under `.github/` directory:
 
 ### Prerequisites
 
-- Python 3.7+
+- Python 3.8+
 - **GitHub CLI (gh)** installed and authenticated
 - Virtual environment (recommended)
 
@@ -70,7 +75,7 @@ Validates proper structure under `.github/` directory:
 
 1. Clone the repository:
 ```bash
-git clone <repository-url>
+git clone https://github.com/DevExpGbb/GitHubAssessment.git
 cd GitHubAssessment
 ```
 
@@ -299,7 +304,8 @@ GitHubAssessment/
 ├── github_security_assessment_*.csv     # Generated security reports
 ├── github_idp_assessment_*.csv          # Generated IDP reports
 ├── github_copilot_assessment_*.csv      # Generated Copilot reports
-└── README.md                       # This file
+├── README.md                       # This file - Human-readable documentation
+└── AGENTS.md                       # LLM/AI agent documentation for code assistance
 ```
 
 ## Output and Reports
@@ -391,6 +397,16 @@ Contributions are welcome! Please:
 1. Fork the repository
 2. Create a feature branch
 3. Submit a pull request with clear description
+
+### For AI/LLM Developers
+
+If you're working with LLM coding agents or AI-powered development tools, see **[AGENTS.md](AGENTS.md)** for:
+- Detailed codebase architecture and patterns
+- Development guidelines and conventions
+- API endpoint documentation
+- Testing and validation procedures
+- Common issues and solutions
+- Code modification examples
 
 ## License
 
