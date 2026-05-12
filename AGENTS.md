@@ -152,7 +152,9 @@ Overall IAM Status, Verification Notes, Errors
 ├── instructions/       # Coding standards (.instructions.md files)
 ├── agents/            # AI personas (.agent.md files)
 ├── collections/       # Curated collections (.collection.yml files)
-└── scripts/           # Utility scripts for maintenance
+├── scripts/           # Utility scripts for maintenance
+├── skills/            # Agent skills (.skill.md files)
+└── hooks/             # Copilot CLI/agent hooks (.json files)
 ```
 
 **Output CSV Columns**:

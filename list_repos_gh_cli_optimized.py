@@ -43,7 +43,8 @@ def check_repo_copilot(repo):
             'agents': False,
             'collections': False,
             'scripts': False,
-            'skills': False
+            'skills': False,
+            'hooks': False
         },
         'error': None
     }
@@ -168,6 +169,7 @@ def list_repos_gh():
             print(f"   collections: No")
             print(f"   scripts: No")
             print(f"   skills: No")
+            print(f"   hooks: No")
             repos_checked += 1
         else:
             print(f"   📁 .github directory: Yes")
@@ -235,6 +237,7 @@ def list_repos_gh():
             'Has collections/': 'Yes' if result['folders']['collections'] else 'No',
             'Has scripts/': 'Yes' if result['folders']['scripts'] else 'No',
             'Has skills/': 'Yes' if result['folders']['skills'] else 'No',
+            'Has hooks/': 'Yes' if result['folders']['hooks'] else 'No',
             'Has Copilot Directories': 'Yes' if any(result['folders'].values()) else 'No',
             'Error': result['error'] if result['error'] else 'None'
         }

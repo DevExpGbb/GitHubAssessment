@@ -47,7 +47,8 @@ def check_copilot_directories(owner, repo, token):
         "agents": False,
         "collections": False,
         "scripts": False,
-        "skills": False
+        "skills": False,
+        "hooks": False
     }
     
     if response.status_code == 404:
@@ -57,9 +58,9 @@ def check_copilot_directories(owner, repo, token):
         return result
 
     result["has_github_dir"] = True
-    contents = [item['name'] for item in response.json()]
+    contents = [item['name'] for item in response.json() if item.get('type') == 'dir']
     
-    for folder in ["prompts", "instructions", "agents", "collections", "scripts", "skills"]:
+    for folder in ["prompts", "instructions", "agents", "collections", "scripts", "skills", "hooks"]:
         result[folder] = folder in contents
     
     return result
@@ -102,6 +103,7 @@ else:
             print(f"   collections: No")
             print(f"   scripts: No")
             print(f"   skills: No")
+            print(f"   hooks: No")
         else:
             print(f"   📁 .github directory: Yes")
             print(f"   prompts: {'✓ Yes' if result['prompts'] else '✗ No'}")
@@ -110,6 +112,7 @@ else:
             print(f"   collections: {'✓ Yes' if result['collections'] else '✗ No'}")
             print(f"   scripts: {'✓ Yes' if result['scripts'] else '✗ No'}")
             print(f"   skills: {'✓ Yes' if result['skills'] else '✗ No'}")
+            print(f"   hooks: {'✓ Yes' if result['hooks'] else '✗ No'}")
     
     print("\n" + "=" * 80)
     print("SUMMARY")
@@ -131,7 +134,7 @@ else:
             })
         else:
             repos_accessible += 1
-            if result.get('prompts') or result.get('instructions') or result.get('agents') or result.get('collections') or result.get('scripts') or result.get('skills'):
+            if result.get('prompts') or result.get('instructions') or result.get('agents') or result.get('collections') or result.get('scripts') or result.get('skills') or result.get('hooks'):
                 repos_with_copilot += 1
     
     print(f"Repositories with Copilot directories: {repos_with_copilot}")
