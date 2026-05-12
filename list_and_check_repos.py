@@ -58,7 +58,7 @@ def check_copilot_directories(owner, repo, token):
         return result
 
     result["has_github_dir"] = True
-    contents = [item['name'] for item in response.json()]
+    contents = [item['name'] for item in response.json() if item.get('type') == 'dir']
     
     for folder in ["prompts", "instructions", "agents", "collections", "scripts", "skills", "hooks"]:
         result[folder] = folder in contents
