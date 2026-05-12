@@ -9,8 +9,9 @@ response-customization?tool=webui#about-repository-custom-instructions
 
 Requirements:
     - GitHub CLI (gh) installed and authenticated
-    - Python 3.7+
-    - openpyxl (for Excel report generation: pip install openpyxl)
+    - Python 3.8+
+    - openpyxl (optional, for Excel report generation: pip install openpyxl)
+      Falls back to CSV output if not installed.
 
 Usage:
     python validate_custom_instructions.py
