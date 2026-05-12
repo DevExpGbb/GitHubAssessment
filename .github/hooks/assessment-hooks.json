@@ -4,19 +4,19 @@
     "sessionStart": [
       {
         "type": "command",
-        "bash": "echo \"[$(date)] Copilot session started in $(pwd)\" >> /tmp/copilot-session.log",
-        "powershell": "Add-Content -Path \"$env:TEMP\\copilot-session.log\" -Value \"[$(Get-Date)] Copilot session started in $(Get-Location)\"",
+        "bash": "mkdir -p logs && echo \"[$(date)] Copilot session started\" >> logs/copilot-session.log",
+        "powershell": "New-Item -ItemType Directory -Force -Path logs | Out-Null; Add-Content -Path logs\\copilot-session.log -Value \"[$(Get-Date)] Copilot session started\"",
         "cwd": ".",
-        "timeoutSec": 10
+        "timeoutSec": 5
       }
     ],
     "sessionEnd": [
       {
         "type": "command",
-        "bash": "echo \"[$(date)] Copilot session ended in $(pwd)\" >> /tmp/copilot-session.log",
-        "powershell": "Add-Content -Path \"$env:TEMP\\copilot-session.log\" -Value \"[$(Get-Date)] Copilot session ended in $(Get-Location)\"",
+        "bash": "mkdir -p logs && echo \"[$(date)] Copilot session ended\" >> logs/copilot-session.log",
+        "powershell": "New-Item -ItemType Directory -Force -Path logs | Out-Null; Add-Content -Path logs\\copilot-session.log -Value \"[$(Get-Date)] Copilot session ended\"",
         "cwd": ".",
-        "timeoutSec": 10
+        "timeoutSec": 5
       }
     ]
   }
