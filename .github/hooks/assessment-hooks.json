@@ -1,0 +1,23 @@
+{
+  "version": 1,
+  "hooks": {
+    "sessionStart": [
+      {
+        "type": "command",
+        "bash": "echo \"[$(date)] Copilot session started in $(pwd)\" >> /tmp/copilot-session.log",
+        "powershell": "Add-Content -Path \"$env:TEMP\\copilot-session.log\" -Value \"[$(Get-Date)] Copilot session started in $(Get-Location)\"",
+        "cwd": ".",
+        "timeoutSec": 10
+      }
+    ],
+    "sessionEnd": [
+      {
+        "type": "command",
+        "bash": "echo \"[$(date)] Copilot session ended in $(pwd)\" >> /tmp/copilot-session.log",
+        "powershell": "Add-Content -Path \"$env:TEMP\\copilot-session.log\" -Value \"[$(Get-Date)] Copilot session ended in $(Get-Location)\"",
+        "cwd": ".",
+        "timeoutSec": 10
+      }
+    ]
+  }
+}

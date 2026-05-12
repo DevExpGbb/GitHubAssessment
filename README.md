@@ -23,7 +23,8 @@ Validates proper structure under `.github/` directory:
 ├── agents/            # AI personas and specialized modes (.agent.md)
 ├── collections/       # Curated collections of related items (.collection.yml)
 ├── scripts/           # Utility scripts for maintenance
-└── skills/            # Agent skills for Copilot (.skill.md)
+├── skills/            # Agent skills for Copilot (.skill.md)
+└── hooks/             # Copilot CLI/agent hooks (.json)
 ```
 
 - **Task-Specific Prompts**: Include prompts organized by task in `.github/prompts/`
@@ -34,6 +35,7 @@ Validates proper structure under `.github/` directory:
   - Example: Pull Request with manual approval required
 - **Security Policies**: Validates policies to prevent generation of insecure code or licensing issues
   - Example: Block usage of unverified libraries
+- **Copilot CLI/Agent Hooks**: Checks for hooks in `.github/hooks/` to extend and customize agent behavior
 
 
 ### 🔒 Security Controls Assessment
@@ -141,6 +143,7 @@ python assess_copilot_repos.py
 - `.github/agents/` with AI personas (`.agent.md` files)
 - `.github/collections/` with curated collections (`.collection.yml` files)
 - `.github/skills/` with agent skills (`.skill.md` files)
+- `.github/hooks/` with Copilot CLI/agent hooks (`.json` files)
 - Proper file extensions and structure
 - Repository metadata and accessibility
 
@@ -277,6 +280,7 @@ Import-Csv github_security_assessment_20251201_143052.csv |
 - [ ] `.github/collections/` with curated collections
 - [ ] `.github/scripts/` with utility scripts
 - [ ] `.github/skills/` with agent skills
+- [ ] `.github/hooks/` with Copilot CLI/agent hooks
 - [ ] Human review mandatory for AI-generated code (Pull Request approval)
 - [ ] Security policies enforced (block unverified libraries)
 
