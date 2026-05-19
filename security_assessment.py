@@ -398,6 +398,105 @@ def check_branch_protection(repo_name):
             'error': str(e)
         }
 
+def check_actions_security(repo_name):
+    """Check GitHub Actions security configuration"""
+    try:
+        # Check default workflow permissions
+        workflow_perms = run_gh_command(
+            f"{CONFIG['gh_command']} api repos/{repo_name}/actions/permissions/workflow"
+        )
+        
+        default_permissions = 'unknown'
+        can_approve_prs = True
+        if workflow_perms:
+            default_permissions = workflow_perms.get('default_workflow_permissions', 'write')
+            can_approve_prs = workflow_perms.get('can_approve_pull_request_reviews', True)
+        
+        # Check allowed actions
+        actions_perms = run_gh_command(
+            f"{CONFIG['gh_command']} api repos/{repo_name}/actions/permissions"
+        )
+        
+        actions_enabled = True
+        allowed_actions = 'all'
+        if actions_perms:
+            actions_enabled = actions_perms.get('enabled', True)
+            allowed_actions = actions_perms.get('allowed_actions', 'all')
+        
+        return {
+            'actions_enabled': actions_enabled,
+            'default_workflow_permissions': default_permissions,
+            'can_approve_prs': can_approve_prs,
+            'allowed_actions': allowed_actions,
+            'is_restrictive': default_permissions == 'read' and not can_approve_prs,
+            'error': None
+        }
+    except Exception as e:
+        return {
+            'actions_enabled': True,
+            'default_workflow_permissions': 'unknown',
+            'can_approve_prs': True,
+            'allowed_actions': 'all',
+            'is_restrictive': False,
+            'error': str(e)
+        }
+
+def check_deploy_keys(repo_name):
+    """Audit deploy keys for security issues"""
+    try:
+        keys = run_gh_command(
+            f"{CONFIG['gh_command']} api repos/{repo_name}/keys"
+        )
+        
+        if keys is None:
+            return {'total_keys': 0, 'write_keys': 0, 'error': 'Not accessible'}
+        
+        if not isinstance(keys, list):
+            return {'total_keys': 0, 'write_keys': 0, 'error': None}
+        
+        total_keys = len(keys)
+        write_keys = sum(1 for k in keys if not k.get('read_only', True))
+        
+        return {
+            'total_keys': total_keys,
+            'write_keys': write_keys,
+            'error': None
+        }
+    except Exception as e:
+        return {'total_keys': 0, 'write_keys': 0, 'error': str(e)}
+
+def check_webhooks(repo_name):
+    """Audit webhooks for security issues"""
+    try:
+        hooks = run_gh_command(
+            f"{CONFIG['gh_command']} api repos/{repo_name}/hooks"
+        )
+        
+        if hooks is None:
+            return {'total_hooks': 0, 'insecure_hooks': 0, 'error': 'Not accessible'}
+        
+        if not isinstance(hooks, list):
+            return {'total_hooks': 0, 'insecure_hooks': 0, 'error': None}
+        
+        total_hooks = len(hooks)
+        insecure_hooks = 0
+        
+        for hook in hooks:
+            config = hook.get('config', {})
+            # Flag if SSL verification disabled or no secret
+            if config.get('insecure_ssl') == '1':
+                insecure_hooks += 1
+            elif not config.get('url', '').startswith('https://'):
+                insecure_hooks += 1
+        
+        return {
+            'total_hooks': total_hooks,
+            'insecure_hooks': insecure_hooks,
+            'error': None
+        }
+    except Exception as e:
+        return {'total_hooks': 0, 'insecure_hooks': 0, 'error': str(e)}
+
 def assess_repository_security(repo, org_settings):
     """Perform comprehensive security assessment on a repository"""
     repo_name = repo['nameWithOwner']
@@ -419,6 +518,9 @@ def assess_repository_security(repo, org_settings):
     result['secret_scanning'] = check_secret_scanning(repo_name)
     result['dependabot'] = check_dependabot(repo_name)
     result['branch_protection'] = check_branch_protection(repo_name)
+    result['actions_security'] = check_actions_security(repo_name)
+    result['deploy_keys'] = check_deploy_keys(repo_name)
+    result['webhooks'] = check_webhooks(repo_name)
     result['org_settings'] = org_config
     
     return result
@@ -461,6 +563,9 @@ def export_to_csv(results):
         secret_scan = result['secret_scanning']
         dependabot = result['dependabot']
         branch_prot = result['branch_protection']
+        actions_sec = result['actions_security']
+        deploy_keys = result['deploy_keys']
+        webhooks = result['webhooks']
         org_config = result.get('org_settings', {})
         
         # Determine if org has good defaults
@@ -502,6 +607,22 @@ def export_to_csv(results):
             'Requires Status Checks': 'Yes' if branch_prot.get('requires_status_checks', False) else 'No',
             'Branch Protection Status': '✅ Pass' if branch_prot['enabled'] else '❌ Fail',
             
+            # Actions Security
+            'Actions Default Permissions': actions_sec.get('default_workflow_permissions', 'unknown'),
+            'Actions Can Approve PRs': 'Yes' if actions_sec.get('can_approve_prs', True) else 'No',
+            'Actions Allowed Policy': actions_sec.get('allowed_actions', 'all'),
+            'Actions Security Status': '✅ Pass' if actions_sec.get('is_restrictive', False) else '⚠️ Review',
+            
+            # Deploy Keys
+            'Deploy Keys Total': deploy_keys.get('total_keys', 0),
+            'Deploy Keys Write Access': deploy_keys.get('write_keys', 0),
+            'Deploy Keys Status': '✅ Pass' if deploy_keys.get('write_keys', 0) == 0 else '⚠️ Review',
+            
+            # Webhooks
+            'Webhooks Total': webhooks.get('total_hooks', 0),
+            'Webhooks Insecure': webhooks.get('insecure_hooks', 0),
+            'Webhooks Status': '✅ Pass' if webhooks.get('insecure_hooks', 0) == 0 else '⚠️ Review',
+            
             # Overall Status
             'Overall Security Status': '✅ Pass' if all([
                 code_scan['enabled'] and code_scan.get('critical_alerts', 0) == 0,
@@ -515,7 +636,10 @@ def export_to_csv(results):
                 code_scan.get('error'),
                 secret_scan.get('error'),
                 dependabot.get('error'),
-                branch_prot.get('error')
+                branch_prot.get('error'),
+                actions_sec.get('error'),
+                deploy_keys.get('error'),
+                webhooks.get('error')
             ])) or 'None'
         }
         
@@ -559,6 +683,10 @@ def print_summary(results, repos, fetch_time, assess_time, total_time):
     
     branch_prot_enabled = sum(1 for r in results if r['branch_protection']['enabled'])
     
+    actions_restrictive = sum(1 for r in results if r['actions_security'].get('is_restrictive', False))
+    deploy_keys_with_write = sum(1 for r in results if r['deploy_keys'].get('write_keys', 0) > 0)
+    insecure_webhooks = sum(1 for r in results if r['webhooks'].get('insecure_hooks', 0) > 0)
+    
     fully_compliant = sum(1 for r in results if all([
         r['code_scanning']['enabled'] and r['code_scanning'].get('critical_alerts', 0) == 0,
         r['secret_scanning']['enabled'],
@@ -576,6 +704,9 @@ def print_summary(results, repos, fetch_time, assess_time, total_time):
     log(f"   Secret Scanning enabled: {secret_scan_enabled}/{total_repos} ({(secret_scan_enabled/total_repos*100):.1f}%)")
     log(f"   Dependabot enabled: {dependabot_enabled}/{total_repos} ({(dependabot_enabled/total_repos*100):.1f}%)")
     log(f"   Branch Protection enabled: {branch_prot_enabled}/{total_repos} ({(branch_prot_enabled/total_repos*100):.1f}%)")
+    log(f"   Actions restrictive permissions: {actions_restrictive}/{total_repos} ({(actions_restrictive/total_repos*100):.1f}%)")
+    log(f"   Repos with write deploy keys: {deploy_keys_with_write}/{total_repos} ({(deploy_keys_with_write/total_repos*100):.1f}%)")
+    log(f"   Repos with insecure webhooks: {insecure_webhooks}/{total_repos} ({(insecure_webhooks/total_repos*100):.1f}%)")
     log(f"\n✅ FULLY COMPLIANT REPOSITORIES: {fully_compliant}/{total_repos} ({(fully_compliant/total_repos*100):.1f}%)")
     
     # Show ruleset recommendation
