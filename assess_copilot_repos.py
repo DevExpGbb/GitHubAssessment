@@ -36,6 +36,10 @@ CONFIG = {
     # Directories to check in .github folder
     'copilot_dirs': ['prompts', 'instructions', 'agents', 'collections', 'scripts', 'skills', 'hooks'],
     
+    # Additional Copilot-related files to check
+    'copilot_files': ['copilot-instructions.md', 'AGENTS.md', '.copilotignore'],
+    'copilot_nested_files': ['.github/copilot/mcp.json'],
+    
     # Performance settings
     'max_workers_fetch': 10,     # Parallel workers for fetching repos
     'max_workers_check': 15,      # Parallel workers for checking directories
@@ -236,24 +240,73 @@ def check_repo_copilot(repo):
     
     return result
 
+def check_copilot_files(repo):
+    """Check for additional Copilot-related files"""
+    repo_name = repo['nameWithOwner']
+    results = {}
+
+    # Check .github/copilot-instructions.md
+    copilot_instructions = run_gh_command(
+        f"{CONFIG['gh_command']} api repos/{repo_name}/contents/.github/copilot-instructions.md"
+    )
+    results['has_copilot_instructions'] = copilot_instructions is not None and 'message' not in (copilot_instructions if isinstance(copilot_instructions, dict) else {})
+
+    # Check AGENTS.md (root level)
+    agents_md = run_gh_command(
+        f"{CONFIG['gh_command']} api repos/{repo_name}/contents/AGENTS.md"
+    )
+    results['has_agents_md'] = agents_md is not None and 'message' not in (agents_md if isinstance(agents_md, dict) else {})
+
+    # Check .copilotignore (root level)
+    copilotignore = run_gh_command(
+        f"{CONFIG['gh_command']} api repos/{repo_name}/contents/.copilotignore"
+    )
+    results['has_copilotignore'] = copilotignore is not None and 'message' not in (copilotignore if isinstance(copilotignore, dict) else {})
+
+    # Check .github/copilot/mcp.json
+    mcp_config = run_gh_command(
+        f"{CONFIG['gh_command']} api repos/{repo_name}/contents/.github/copilot/mcp.json"
+    )
+    results['has_mcp_config'] = mcp_config is not None and 'message' not in (mcp_config if isinstance(mcp_config, dict) else {})
+
+    return results
+
+
 def check_all_repositories(repos):
     """Check all repositories for Copilot directories in parallel"""
-    log("\nChecking Copilot directories (parallel execution)...")
+    log("\nChecking Copilot directories and files (parallel execution)...")
     
     results = []
     total = len(repos)
     
     with ThreadPoolExecutor(max_workers=CONFIG['max_workers_check']) as executor:
-        future_to_repo = {executor.submit(check_repo_copilot, repo): repo for repo in repos}
+        # Submit directory checks
+        dir_futures = {executor.submit(check_repo_copilot, repo): repo for repo in repos}
+        # Submit file checks
+        file_futures = {executor.submit(check_copilot_files, repo): repo for repo in repos}
         
+        # Collect directory check results
+        dir_results = {}
+        for future in as_completed(dir_futures):
+            repo = dir_futures[future]
+            dir_results[repo['nameWithOwner']] = future.result()
+        
+        # Collect file check results
+        file_results = {}
         completed = 0
-        for future in as_completed(future_to_repo):
-            result = future.result()
-            results.append(result)
+        for future in as_completed(file_futures):
+            repo = file_futures[future]
+            file_results[repo['nameWithOwner']] = future.result()
             completed += 1
-            
-            # Progress indicator
             log(f"⚡ Progress: {completed}/{total} repositories checked ({(completed/total*100):.0f}%)", verbose_only=True)
+        
+        # Merge results
+        for repo in repos:
+            name = repo['nameWithOwner']
+            dir_result = dir_results.get(name, {})
+            file_result = file_results.get(name, {})
+            dir_result['files'] = file_result
+            results.append(dir_result)
     
     # Sort by name for consistent output
     results.sort(key=lambda x: x['name'])
@@ -271,6 +324,7 @@ def export_to_csv(results, repos):
         repo_name = result['name']
         owner = repo_name.split('/')[0]
         is_org = owner != CONFIG['personal_account']
+        files = result.get('files', {})
         
         row = {
             'Repository': repo_name,
@@ -284,7 +338,30 @@ def export_to_csv(results, repos):
         for folder in CONFIG['copilot_dirs']:
             row[f'Has {folder}/'] = 'Yes' if result['folders'][folder] else 'No'
         
+        # Add columns for copilot files
+        row['Has copilot-instructions.md'] = 'Yes' if files.get('has_copilot_instructions') else 'No'
+        row['Has AGENTS.md'] = 'Yes' if files.get('has_agents_md') else 'No'
+        row['Has .copilotignore'] = 'Yes' if files.get('has_copilotignore') else 'No'
+        row['Has MCP Config'] = 'Yes' if files.get('has_mcp_config') else 'No'
+        
         row['Has Copilot Directories'] = 'Yes' if any(result['folders'].values()) else 'No'
+        
+        # Recommendations
+        recommendations = []
+        if not result['has_github_dir']:
+            recommendations.append('Create .github directory')
+        if not any(result['folders'].values()):
+            recommendations.append('Add Copilot directories (prompts, instructions, agents)')
+        if not files.get('has_copilot_instructions'):
+            recommendations.append('Add .github/copilot-instructions.md')
+        if not files.get('has_agents_md'):
+            recommendations.append('Add AGENTS.md')
+        if not files.get('has_copilotignore'):
+            recommendations.append('Add .copilotignore')
+        if not files.get('has_mcp_config'):
+            recommendations.append('Add .github/copilot/mcp.json')
+        
+        row['Recommendations'] = '; '.join(recommendations) if recommendations else 'None'
         row['Error'] = result['error'] if result['error'] else 'None'
         
         export_data.append(row)
@@ -320,6 +397,12 @@ def print_summary(results, repos, fetch_time, check_time, total_time):
     repos_with_copilot = sum(1 for r in results if any(r['folders'].values()))
     repos_with_errors = sum(1 for r in results if r['error'])
     
+    # File check stats
+    repos_with_copilot_instructions = sum(1 for r in results if r.get('files', {}).get('has_copilot_instructions'))
+    repos_with_agents_md = sum(1 for r in results if r.get('files', {}).get('has_agents_md'))
+    repos_with_copilotignore = sum(1 for r in results if r.get('files', {}).get('has_copilotignore'))
+    repos_with_mcp_config = sum(1 for r in results if r.get('files', {}).get('has_mcp_config'))
+    
     log("\n" + "=" * 80)
     log("SUMMARY")
     log("=" * 80)
@@ -327,6 +410,12 @@ def print_summary(results, repos, fetch_time, check_time, total_time):
     log(f"Repositories checked: {repos_checked}")
     log(f"Repositories with Copilot directories: {repos_with_copilot}")
     log(f"Repositories with errors: {repos_with_errors}")
+    
+    log(f"\n📄 COPILOT FILE ADOPTION:")
+    log(f"   copilot-instructions.md: {repos_with_copilot_instructions}/{repos_checked} ({(repos_with_copilot_instructions/max(repos_checked,1)*100):.0f}%)")
+    log(f"   AGENTS.md:               {repos_with_agents_md}/{repos_checked} ({(repos_with_agents_md/max(repos_checked,1)*100):.0f}%)")
+    log(f"   .copilotignore:          {repos_with_copilotignore}/{repos_checked} ({(repos_with_copilotignore/max(repos_checked,1)*100):.0f}%)")
+    log(f"   MCP config:              {repos_with_mcp_config}/{repos_checked} ({(repos_with_mcp_config/max(repos_checked,1)*100):.0f}%)")
     
     # Show final rate limit status for enterprise monitoring
     if CONFIG['enable_rate_limit_check']:
