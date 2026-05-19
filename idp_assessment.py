@@ -458,6 +458,29 @@ def check_copilot_settings(org_login):
         
         seat_breakdown = billing.get('seat_breakdown', {})
         
+        # Check premium requests budget
+        # The premium_requests_budget field indicates if org has set spending limits
+        # for premium model usage (GPT-4, Claude, etc.)
+        has_premium_budget = False
+        premium_budget_limit = None
+        
+        # Try to get Copilot policies/settings that include premium request limits
+        policies = run_gh_command(
+            f"{CONFIG['gh_command']} api orgs/{org_login}/copilot/policies"
+        )
+        
+        if policies and isinstance(policies, dict):
+            premium_budget_limit = policies.get('premium_requests_budget_monthly_limit')
+            has_premium_budget = premium_budget_limit is not None and premium_budget_limit > 0
+        
+        # Also check from billing response
+        if not has_premium_budget and billing:
+            # Check for budget fields in billing response
+            premium_budget_limit = billing.get('premium_requests_budget_monthly_limit')
+            if premium_budget_limit is None:
+                premium_budget_limit = billing.get('organization_monthly_budget')
+            has_premium_budget = premium_budget_limit is not None and premium_budget_limit > 0
+        
         return {
             'enabled': True,
             'total_seats': seat_breakdown.get('total', 0),
@@ -465,6 +488,8 @@ def check_copilot_settings(org_login):
             'inactive_seats': seat_breakdown.get('inactive_this_cycle', 0),
             'seat_management': billing.get('seat_management_setting', 'unknown'),
             'public_code_suggestions': billing.get('public_code_suggestions', 'unknown'),
+            'has_premium_budget': has_premium_budget,
+            'premium_budget_limit': premium_budget_limit,
             'error': None
         }
     except Exception as e:
@@ -605,7 +630,9 @@ def export_to_csv(results):
             'Copilot Active Seats': copilot.get('active_seats', 0),
             'Copilot Inactive Seats': copilot.get('inactive_seats', 0),
             'Copilot Public Code Suggestions': copilot.get('public_code_suggestions', 'N/A'),
-            'Copilot Status': '✅ Pass' if copilot.get('public_code_suggestions') == 'block' else '⚠️ Review' if copilot.get('enabled') else 'N/A',
+            'Copilot Premium Budget Set': 'Yes' if copilot.get('has_premium_budget', False) else 'No',
+            'Copilot Premium Budget Limit': copilot.get('premium_budget_limit', 'N/A'),
+            'Copilot Status': '✅ Pass' if (copilot.get('public_code_suggestions') == 'block' and copilot.get('has_premium_budget', False)) else '⚠️ Review' if copilot.get('enabled') else 'N/A',
             
             # Overall Compliance
             'Overall IAM Status': '✅ Compliant' if all([
@@ -726,6 +753,16 @@ def print_summary(results, fetch_time, assess_time, total_time):
     with_config = sum(1 for r in results if r.get('code_security_config', {}).get('has_config', False))
     log(f"\n🛡️ CODE SECURITY CONFIGURATIONS:")
     log(f"   Organizations with security config: {with_config}/{total_orgs} ({(with_config/total_orgs*100):.1f}%)")
+    
+    # Copilot Governance
+    with_premium_budget = sum(1 for r in results if r.get('copilot_settings', {}).get('has_premium_budget', False))
+    if any(r.get('copilot_settings', {}).get('enabled', False) for r in results):
+        copilot_enabled_count = sum(1 for r in results if r.get('copilot_settings', {}).get('enabled', False))
+        log(f"\n🤖 COPILOT GOVERNANCE:")
+        log(f"   Orgs with Copilot enabled: {copilot_enabled_count}/{total_orgs}")
+        log(f"   Orgs with premium requests budget: {with_premium_budget}/{copilot_enabled_count}")
+        if with_premium_budget < copilot_enabled_count:
+            log(f"   ⚠️  {copilot_enabled_count - with_premium_budget} org(s) without premium requests budget (risk of unbounded spending)")
     
     log(f"\n✅ FULLY COMPLIANT ORGANIZATIONS: {fully_compliant}/{total_orgs} ({(fully_compliant/total_orgs*100):.1f}%)")
     
