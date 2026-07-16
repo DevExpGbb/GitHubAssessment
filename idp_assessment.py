@@ -304,6 +304,197 @@ def check_org_token_security(org_login):
     except Exception as e:
         return {'error': str(e)}
 
+def check_org_rulesets(org_login):
+    """Check organization-level rulesets"""
+    try:
+        rulesets = run_gh_command(f"{CONFIG['gh_command']} api orgs/{org_login}/rulesets")
+        
+        if rulesets is None or not isinstance(rulesets, list):
+            return {'total_rulesets': 0, 'active_rulesets': 0, 'has_pr_requirement': False, 'error': None}
+        
+        total = len(rulesets)
+        active = sum(1 for r in rulesets if r.get('enforcement') == 'active')
+        
+        # Check if any ruleset enforces PR reviews
+        has_pr_requirement = False
+        for ruleset in rulesets:
+            ruleset_id = ruleset.get('id')
+            if ruleset_id and ruleset.get('enforcement') == 'active':
+                detail = run_gh_command(
+                    f"{CONFIG['gh_command']} api orgs/{org_login}/rulesets/{ruleset_id}"
+                )
+                if detail and isinstance(detail, dict):
+                    rules = detail.get('rules', [])
+                    for rule in rules:
+                        if rule.get('type') in ['required_pull_request', 'pull_request']:
+                            has_pr_requirement = True
+                            break
+                if has_pr_requirement:
+                    break
+        
+        return {
+            'total_rulesets': total,
+            'active_rulesets': active,
+            'has_pr_requirement': has_pr_requirement,
+            'error': None
+        }
+    except Exception as e:
+        return {'total_rulesets': 0, 'active_rulesets': 0, 'has_pr_requirement': False, 'error': str(e)}
+
+def check_outside_collaborators(org_login):
+    """Audit outside collaborators in the organization"""
+    try:
+        collabs = run_gh_command(
+            f"{CONFIG['gh_command']} api orgs/{org_login}/outside_collaborators --paginate"
+        )
+        
+        if collabs is None:
+            return {'total': 0, 'without_2fa': 0, 'error': 'Not accessible or no permission'}
+        
+        if not isinstance(collabs, list):
+            return {'total': 0, 'without_2fa': 0, 'error': None}
+        
+        total = len(collabs)
+        
+        # Check collaborators without 2FA
+        collabs_no_2fa = run_gh_command(
+            f"{CONFIG['gh_command']} api 'orgs/{org_login}/outside_collaborators?filter=2fa_disabled' --paginate"
+        )
+        
+        without_2fa = len(collabs_no_2fa) if isinstance(collabs_no_2fa, list) else 0
+        
+        return {
+            'total': total,
+            'without_2fa': without_2fa,
+            'error': None
+        }
+    except Exception as e:
+        return {'total': 0, 'without_2fa': 0, 'error': str(e)}
+
+def check_org_actions_permissions(org_login):
+    """Check organization-level GitHub Actions permissions"""
+    try:
+        perms = run_gh_command(
+            f"{CONFIG['gh_command']} api orgs/{org_login}/actions/permissions"
+        )
+        
+        if perms is None:
+            return {'error': 'Not accessible'}
+        
+        # Check workflow default permissions
+        workflow_perms = run_gh_command(
+            f"{CONFIG['gh_command']} api orgs/{org_login}/actions/permissions/workflow"
+        )
+        
+        default_workflow_permissions = 'write'
+        can_approve_prs = True
+        if workflow_perms:
+            default_workflow_permissions = workflow_perms.get('default_workflow_permissions', 'write')
+            can_approve_prs = workflow_perms.get('can_approve_pull_request_reviews', True)
+        
+        return {
+            'enabled_repositories': perms.get('enabled_repositories', 'all'),
+            'allowed_actions': perms.get('allowed_actions', 'all'),
+            'default_workflow_permissions': default_workflow_permissions,
+            'can_approve_prs': can_approve_prs,
+            'error': None
+        }
+    except Exception as e:
+        return {'error': str(e)}
+
+def check_pat_policies(org_login):
+    """Check fine-grained PAT policies"""
+    try:
+        org_data = run_gh_command(f"{CONFIG['gh_command']} api orgs/{org_login}")
+        
+        if org_data is None:
+            return {'error': 'Not accessible'}
+        
+        # Check pending PAT requests
+        pat_requests = run_gh_command(
+            f"{CONFIG['gh_command']} api orgs/{org_login}/personal-access-token-requests"
+        )
+        
+        pending_requests = len(pat_requests) if isinstance(pat_requests, list) else 0
+        
+        return {
+            'pending_pat_requests': pending_requests,
+            'error': None
+        }
+    except Exception as e:
+        return {'error': str(e)}
+
+def check_code_security_config(org_login):
+    """Check organization code security configurations"""
+    try:
+        configs = run_gh_command(
+            f"{CONFIG['gh_command']} api orgs/{org_login}/code-security/configurations"
+        )
+        
+        if configs is None or not isinstance(configs, list):
+            return {'has_config': False, 'total_configs': 0, 'has_enforced': False, 'error': None}
+        
+        total = len(configs)
+        has_enforced = any(c.get('enforcement') == 'enforced' for c in configs)
+        
+        return {
+            'has_config': total > 0,
+            'total_configs': total,
+            'has_enforced': has_enforced,
+            'error': None
+        }
+    except Exception as e:
+        return {'has_config': False, 'total_configs': 0, 'has_enforced': False, 'error': str(e)}
+
+def check_copilot_settings(org_login):
+    """Check GitHub Copilot organization settings"""
+    try:
+        billing = run_gh_command(
+            f"{CONFIG['gh_command']} api orgs/{org_login}/copilot/billing"
+        )
+        
+        if billing is None:
+            return {'enabled': False, 'error': 'Not accessible or Copilot not enabled'}
+        
+        seat_breakdown = billing.get('seat_breakdown', {})
+        
+        # Check premium requests budget
+        # The premium_requests_budget field indicates if org has set spending limits
+        # for premium model usage (GPT-4, Claude, etc.)
+        has_premium_budget = False
+        premium_budget_limit = None
+        
+        # Try to get Copilot policies/settings that include premium request limits
+        policies = run_gh_command(
+            f"{CONFIG['gh_command']} api orgs/{org_login}/copilot/policies"
+        )
+        
+        if policies and isinstance(policies, dict):
+            premium_budget_limit = policies.get('premium_requests_budget_monthly_limit')
+            has_premium_budget = premium_budget_limit is not None and premium_budget_limit > 0
+        
+        # Also check from billing response
+        if not has_premium_budget and billing:
+            # Check for budget fields in billing response
+            premium_budget_limit = billing.get('premium_requests_budget_monthly_limit')
+            if premium_budget_limit is None:
+                premium_budget_limit = billing.get('organization_monthly_budget')
+            has_premium_budget = premium_budget_limit is not None and premium_budget_limit > 0
+        
+        return {
+            'enabled': True,
+            'total_seats': seat_breakdown.get('total', 0),
+            'active_seats': seat_breakdown.get('active_this_cycle', 0),
+            'inactive_seats': seat_breakdown.get('inactive_this_cycle', 0),
+            'seat_management': billing.get('seat_management_setting', 'unknown'),
+            'public_code_suggestions': billing.get('public_code_suggestions', 'unknown'),
+            'has_premium_budget': has_premium_budget,
+            'premium_budget_limit': premium_budget_limit,
+            'error': None
+        }
+    except Exception as e:
+        return {'enabled': False, 'error': str(e)}
+
 def assess_organization(org):
     """Perform comprehensive IAM assessment on an organization"""
     org_login = org['login']
@@ -320,6 +511,12 @@ def assess_organization(org):
     result['member_privileges'] = check_org_member_privileges(org_login)
     result['environments'] = check_org_environments(org_login)
     result['token_security'] = check_org_token_security(org_login)
+    result['org_rulesets'] = check_org_rulesets(org_login)
+    result['outside_collaborators'] = check_outside_collaborators(org_login)
+    result['actions_permissions'] = check_org_actions_permissions(org_login)
+    result['pat_policies'] = check_pat_policies(org_login)
+    result['code_security_config'] = check_code_security_config(org_login)
+    result['copilot_settings'] = check_copilot_settings(org_login)
     
     return result
 
@@ -361,6 +558,12 @@ def export_to_csv(results):
         privs = result['member_privileges']
         envs = result['environments']
         tokens = result['token_security']
+        rulesets = result.get('org_rulesets', {})
+        outside_collabs = result.get('outside_collaborators', {})
+        actions_perms = result.get('actions_permissions', {})
+        pat_pol = result.get('pat_policies', {})
+        code_sec = result.get('code_security_config', {})
+        copilot = result.get('copilot_settings', {})
         
         row = {
             'Organization': result['org_login'],
@@ -395,6 +598,42 @@ def export_to_csv(results):
             'Dependabot Alerts Enabled': 'Yes' if tokens.get('dependabot_alerts_for_new_repos', False) else 'No',
             'Token Security Status': '✅ Pass' if tokens.get('secret_scanning_for_new_repos', False) else '⚠️ Review',
             
+            # Org Rulesets
+            'Org Rulesets Total': rulesets.get('total_rulesets', 0),
+            'Org Rulesets Active': rulesets.get('active_rulesets', 0),
+            'Org Rulesets Require PR': 'Yes' if rulesets.get('has_pr_requirement', False) else 'No',
+            'Org Rulesets Status': '✅ Pass' if rulesets.get('active_rulesets', 0) > 0 else '⚠️ No org rulesets',
+            
+            # Outside Collaborators
+            'Outside Collaborators': outside_collabs.get('total', 0),
+            'Outside Collabs Without 2FA': outside_collabs.get('without_2fa', 0),
+            'Outside Collabs Status': '✅ Pass' if outside_collabs.get('without_2fa', 0) == 0 else '⚠️ Review',
+            
+            # Actions Permissions
+            'Org Actions Allowed Policy': actions_perms.get('allowed_actions', 'unknown'),
+            'Org Actions Default Permissions': actions_perms.get('default_workflow_permissions', 'unknown'),
+            'Org Actions Can Approve PRs': 'Yes' if actions_perms.get('can_approve_prs', True) else 'No',
+            'Org Actions Status': '✅ Pass' if actions_perms.get('default_workflow_permissions') == 'read' and not actions_perms.get('can_approve_prs', True) else '⚠️ Review',
+            
+            # PAT Policies
+            'Pending PAT Requests': pat_pol.get('pending_pat_requests', 0),
+            
+            # Code Security Configuration
+            'Has Code Security Config': 'Yes' if code_sec.get('has_config', False) else 'No',
+            'Code Security Configs Total': code_sec.get('total_configs', 0),
+            'Code Security Enforced': 'Yes' if code_sec.get('has_enforced', False) else 'No',
+            'Code Security Config Status': '✅ Pass' if code_sec.get('has_enforced', False) else '⚠️ Review',
+            
+            # Copilot Settings
+            'Copilot Enabled': 'Yes' if copilot.get('enabled', False) else 'No',
+            'Copilot Total Seats': copilot.get('total_seats', 0),
+            'Copilot Active Seats': copilot.get('active_seats', 0),
+            'Copilot Inactive Seats': copilot.get('inactive_seats', 0),
+            'Copilot Public Code Suggestions': copilot.get('public_code_suggestions', 'N/A'),
+            'Copilot Premium Budget Set': 'Yes' if copilot.get('has_premium_budget', False) else 'No',
+            'Copilot Premium Budget Limit': copilot.get('premium_budget_limit', 'N/A'),
+            'Copilot Status': '✅ Pass' if (copilot.get('public_code_suggestions') == 'block' and copilot.get('has_premium_budget', False)) else '⚠️ Review' if copilot.get('enabled') else 'N/A',
+            
             # Overall Compliance
             'Overall IAM Status': '✅ Compliant' if all([
                 # Enterprise orgs use IdP for auth, so don't require org-level 2FA setting
@@ -408,7 +647,13 @@ def export_to_csv(results):
                 sso.get('error'),
                 privs.get('error'),
                 envs.get('error'),
-                tokens.get('error')
+                tokens.get('error'),
+                rulesets.get('error'),
+                outside_collabs.get('error'),
+                actions_perms.get('error'),
+                pat_pol.get('error'),
+                code_sec.get('error'),
+                copilot.get('error')
             ])) or 'None'
         }
         
@@ -485,6 +730,39 @@ def print_summary(results, fetch_time, assess_time, total_time):
     
     log(f"\n🔑 TOKEN & SECRET SECURITY:")
     log(f"   Secret Scanning for New Repos: {with_secret_scanning}/{total_orgs} ({(with_secret_scanning/total_orgs*100):.1f}%)")
+    
+    # Org Rulesets
+    with_rulesets = sum(1 for r in results if r.get('org_rulesets', {}).get('active_rulesets', 0) > 0)
+    log(f"\n📋 ORG-LEVEL RULESETS:")
+    log(f"   Organizations with active rulesets: {with_rulesets}/{total_orgs} ({(with_rulesets/total_orgs*100):.1f}%)")
+    
+    # Outside Collaborators
+    total_outside = sum(r.get('outside_collaborators', {}).get('total', 0) for r in results)
+    without_2fa = sum(r.get('outside_collaborators', {}).get('without_2fa', 0) for r in results)
+    log(f"\n👥 OUTSIDE COLLABORATORS:")
+    log(f"   Total across all orgs: {total_outside}")
+    if without_2fa > 0:
+        log(f"   ⚠️  Without 2FA: {without_2fa}")
+    
+    # Actions
+    secure_actions = sum(1 for r in results if r.get('actions_permissions', {}).get('default_workflow_permissions') == 'read')
+    log(f"\n⚡ GITHUB ACTIONS GOVERNANCE:")
+    log(f"   Orgs with read-only default permissions: {secure_actions}/{total_orgs} ({(secure_actions/total_orgs*100):.1f}%)")
+    
+    # Code Security Config
+    with_config = sum(1 for r in results if r.get('code_security_config', {}).get('has_config', False))
+    log(f"\n🛡️ CODE SECURITY CONFIGURATIONS:")
+    log(f"   Organizations with security config: {with_config}/{total_orgs} ({(with_config/total_orgs*100):.1f}%)")
+    
+    # Copilot Governance
+    with_premium_budget = sum(1 for r in results if r.get('copilot_settings', {}).get('has_premium_budget', False))
+    if any(r.get('copilot_settings', {}).get('enabled', False) for r in results):
+        copilot_enabled_count = sum(1 for r in results if r.get('copilot_settings', {}).get('enabled', False))
+        log(f"\n🤖 COPILOT GOVERNANCE:")
+        log(f"   Orgs with Copilot enabled: {copilot_enabled_count}/{total_orgs}")
+        log(f"   Orgs with premium requests budget: {with_premium_budget}/{copilot_enabled_count}")
+        if with_premium_budget < copilot_enabled_count:
+            log(f"   ⚠️  {copilot_enabled_count - with_premium_budget} org(s) without premium requests budget (risk of unbounded spending)")
     
     log(f"\n✅ FULLY COMPLIANT ORGANIZATIONS: {fully_compliant}/{total_orgs} ({(fully_compliant/total_orgs*100):.1f}%)")
     
