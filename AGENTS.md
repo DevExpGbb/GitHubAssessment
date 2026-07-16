@@ -20,21 +20,24 @@ The tool performs three main types of assessments:
 
 ```
 GitHubAssessment/
-├── security_assessment.py           # Main: Repository security controls assessment
-├── idp_assessment.py                # Main: Identity & access management assessment  
-├── assess_copilot_repos.py          # Main: GitHub Copilot best practices validation
-├── list_repos_gh_cli.py            # Utility: Basic repository listing
-├── list_repos_gh_cli_optimized.py  # Utility: Optimized repository listing with Copilot checks
-├── list_and_check_repos.py         # Utility: Combined listing and Copilot directory checking
-├── .gitignore                      # Excludes .venv, __pycache__, *.csv, *.log
-├── README.md                       # Human-readable documentation
-└── AGENTS.md                       # This file - LLM agent documentation
+├── security_assessment.py                   # Main: Repository security controls assessment
+├── idp_assessment.py                        # Main: Identity & access management assessment  
+├── assess_copilot_repos.py                  # Main: GitHub Copilot best practices validation
+├── validate_custom_instructions.py          # Main: Custom Instructions existence & size validation
+├── test_validate_custom_instructions.py     # Tests: Automated tests for validate_custom_instructions.py
+├── list_repos_gh_cli.py                    # Utility: Basic repository listing
+├── list_repos_gh_cli_optimized.py          # Utility: Optimized repository listing with Copilot checks
+├── list_and_check_repos.py                 # Utility: Combined listing and Copilot directory checking
+├── .gitignore                              # Excludes .venv, __pycache__, *.csv, *.xlsx, *.log
+├── README.md                               # Human-readable documentation
+└── AGENTS.md                               # This file - LLM agent documentation
 ```
 
 ### Generated Files (Excluded from Git)
 - `github_security_assessment_YYYYMMDD_HHMMSS.csv` - Security assessment reports
 - `github_idp_assessment_YYYYMMDD_HHMMSS.csv` - IDP assessment reports
 - `github_copilot_assessment_YYYYMMDD_HHMMSS.csv` - Copilot assessment reports
+- `custom_instructions_violations_YYYYMMDD_HHMMSS.xlsx` - Custom Instructions violations report
 - `.venv/` - Python virtual environment directory
 
 ## Codebase Architecture
@@ -164,7 +167,47 @@ Instructions Dir, Instructions Count, Agents Dir, Agents Count, Collections Dir,
 Collections Count, Scripts Dir, Scripts Count, Overall Copilot Status, Recommendations, Errors
 ```
 
-#### 4. Utility Scripts
+#### 4. validate_custom_instructions.py
+
+**Purpose**: Validates that GitHub Copilot Repository Custom Instructions files exist and comply
+with the 4,000-character limit defined in the GitHub Copilot documentation.
+
+**Reference**: https://docs.github.com/en/enterprise-cloud@latest/copilot/concepts/prompting/response-customization?tool=webui#about-repository-custom-instructions
+
+**Key Functions**:
+- `check_gh_installed()` - Validates GitHub CLI
+- `check_rate_limit()` - Monitors API rate limits
+- `run_gh_command(command)` - Executes GitHub CLI commands returning JSON
+- `fetch_repositories()` - Fetches all repositories with parallel execution
+- `decode_file_content(api_response)` - Decodes base64-encoded file content from GitHub API
+- `get_custom_instruction_files(repo_name)` - Retrieves all custom instruction files for a repo
+- `assess_repo(repo)` - Main assessment for a single repository
+- `check_all_repositories(repos)` - Parallel assessment of all repositories
+- `validate_existence(results)` - Checks that at least one custom instruction file exists
+- `validate_file_sizes(results)` - Checks all files are within the 4,000-character limit
+- `export_violations_to_excel(violations)` - Exports violations to an Excel file
+- `main()` - Entry point; halts with exit code 1 when a validation fails
+
+**Files Checked**:
+- `.github/copilot-instructions.md` - Primary repository-level custom instruction file
+- `.github/instructions/*.instructions.md` - Additional instruction files
+
+**Validation Rules**:
+1. **Existence**: At least one custom instruction file must be present
+2. **Size**: Each file must not exceed 4,000 characters
+
+**Output**:
+- Console: Pass/Fail per validation rule with GitHub Copilot rule references
+- Excel: `custom_instructions_violations_YYYYMMDD_HHMMSS.xlsx` (only when violations found)
+
+**Exit Codes**:
+- `0` - All validations passed
+- `1` - One or more validations failed
+
+**Dependencies**:
+- `openpyxl` (optional; falls back to CSV if not installed): `pip install openpyxl`
+
+#### 5. Utility Scripts
 
 **list_repos_gh_cli.py** (143 lines):
 - Basic repository listing using GitHub CLI

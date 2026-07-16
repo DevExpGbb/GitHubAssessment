@@ -158,7 +158,50 @@ python assess_copilot_repos.py
 - Overall Copilot readiness status
 - Recommendations for missing components
 
-### 2. Security Assessment
+### 2. Custom Instructions Validation
+
+Validates that GitHub Copilot Repository Custom Instructions files exist and comply with the
+4,000-character limit imposed by GitHub Copilot.
+
+> 📖 Reference: [GitHub Copilot Repository Custom Instructions](https://docs.github.com/en/enterprise-cloud@latest/copilot/concepts/prompting/response-customization?tool=webui#about-repository-custom-instructions)
+
+**Install the required library:**
+```bash
+pip install openpyxl
+```
+
+**Run the validation:**
+```bash
+python validate_custom_instructions.py
+```
+
+**What it checks:**
+- **Existence** – at least one of the following files must be present in a repository:
+  - `.github/copilot-instructions.md`
+  - `.github/instructions/*.instructions.md`
+- **Size limit** – each custom instruction file must not exceed **4,000 characters**
+
+**Validation flow:**
+1. Fetches all accessible repositories
+2. Checks each repository for custom instruction files
+3. **Fails immediately** if no custom instruction files are found across all repositories
+4. **Fails immediately** if any file exceeds the 4,000-character limit and generates an Excel report
+
+**Output:**
+- Console summary with ✅/❌ validation results per rule
+- Excel file `custom_instructions_violations_YYYYMMDD_HHMMSS.xlsx` (only when violations are found)
+  - Lists every violating file with its repository, path, character count, and excess characters
+
+**Exit codes:**
+- `0` – All validations passed
+- `1` – One or more validations failed
+
+**Running tests:**
+```bash
+python test_validate_custom_instructions.py -v
+```
+
+### 3. Security Assessment
 
 Evaluates repository-level security controls across all accessible repositories.
 
@@ -186,7 +229,7 @@ python security_assessment.py
 - Overall security compliance status
 - Error details (if any)
 
-### 3. Identity & Access Management (IDP) Assessment
+### 4. Identity & Access Management (IDP) Assessment
 
 Evaluates organization-level identity, authentication, and access controls.
 
@@ -296,20 +339,23 @@ This tool supports assessment alignment with:
 
 ```
 GitHubAssessment/
-├── security_assessment.py           # Repository security controls assessment
-├── idp_assessment.py                # Identity & access management assessment
-├── assess_copilot_repos.py          # GitHub Copilot best practices validation
-├── list_repos_gh_cli.py            # Repository listing utility
-├── list_repos_gh_cli_optimized.py  # Optimized repository listing
-├── list_and_check_repos.py         # Combined listing and checking
-├── MCP/                            # Model Context Protocol configurations
-├── .venv/                          # Python virtual environment
-├── .gitignore                      # Excludes .venv, CSV files, logs
-├── github_security_assessment_*.csv     # Generated security reports
-├── github_idp_assessment_*.csv          # Generated IDP reports
-├── github_copilot_assessment_*.csv      # Generated Copilot reports
-├── README.md                       # This file - Human-readable documentation
-└── AGENTS.md                       # LLM/AI agent documentation for code assistance
+├── security_assessment.py                   # Repository security controls assessment
+├── idp_assessment.py                        # Identity & access management assessment
+├── assess_copilot_repos.py                  # GitHub Copilot best practices validation
+├── validate_custom_instructions.py          # Custom Instructions existence & size validation
+├── test_validate_custom_instructions.py     # Automated tests for the above
+├── list_repos_gh_cli.py                    # Repository listing utility
+├── list_repos_gh_cli_optimized.py          # Optimized repository listing
+├── list_and_check_repos.py                 # Combined listing and checking
+├── MCP/                                    # Model Context Protocol configurations
+├── .venv/                                  # Python virtual environment
+├── .gitignore                              # Excludes .venv, CSV files, Excel files, logs
+├── github_security_assessment_*.csv             # Generated security reports
+├── github_idp_assessment_*.csv                  # Generated IDP reports
+├── github_copilot_assessment_*.csv              # Generated Copilot reports
+├── custom_instructions_violations_*.xlsx        # Generated violations reports
+├── README.md                               # This file - Human-readable documentation
+└── AGENTS.md                               # LLM/AI agent documentation for code assistance
 ```
 
 ## Output and Reports
@@ -507,6 +553,7 @@ gh config list
 - [x] Security assessment with parallel execution
 - [x] IDP assessment with Enterprise SSO support
 - [x] Copilot best practices validation
+- [x] Custom Instructions existence & size validation with Excel report
 - [x] CSV export with timestamped files
 - [ ] Advanced analytics dashboard
 - [ ] Trend analysis across multiple assessments
